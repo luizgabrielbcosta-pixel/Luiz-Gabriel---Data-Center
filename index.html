@@ -38,6 +38,7 @@ h1 { font: 700 clamp(28px, 4.4vw, 42px)/1.1 var(--f-display); letter-spacing: -.
 .top { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
 .top li { display: flex; gap: 10px; }
 .top b { font: 500 13px var(--f-mono); color: var(--muted); width: 22px; }
+.top .carregando, .top .indisp { color: var(--muted); }
 .abrir { font-weight: 600; font-size: 14px; color: var(--accent); }
 .metodo { display: grid; gap: 8px; background: var(--accent-soft); border-radius: 10px; padding: 18px 20px; font-size: 14px; }
 .metodo h2 { font: 600 15px/1.3 var(--f-display); margin: 0; }
@@ -58,38 +59,72 @@ footer { color: var(--muted); font-size: 13px; }
       <span class="rot">Pesos GPT · soma ponderada</span>
       <h2>AHP-GPT-<span>SAW</span></h2>
       <p class="desc">Pesos do AHP elaborado com o GPT, ranking por soma ponderada dos desempenhos.</p>
-      <ol class="top"><li><b>1º</b>São Caetano do Sul</li><li><b>2º</b>Piraju</li><li><b>3º</b>Diadema</li></ol>
+      <ol class="top" data-mapa="mapa_ahp_gpt_saw.html"><li class="carregando">Carregando ranking…</li></ol>
       <span class="abrir">Abrir mapa →</span>
     </a>
     <a class="cartao" href="mapa_ahp_gpt_topsis.html">
       <span class="rot">Pesos GPT · proximidade da solução ideal</span>
       <h2>AHP-GPT-<span>TOPSIS</span></h2>
       <p class="desc">Pesos do AHP elaborado com o GPT, ranking pela proximidade à solução ideal.</p>
-      <ol class="top"><li><b>1º</b>São Caetano do Sul</li><li><b>2º</b>Avaré</li><li><b>3º</b>Piraju</li></ol>
+      <ol class="top" data-mapa="mapa_ahp_gpt_topsis.html"><li class="carregando">Carregando ranking…</li></ol>
       <span class="abrir">Abrir mapa →</span>
     </a>
     <a class="cartao" href="mapa_ahp_claude_saw.html">
       <span class="rot">Pesos Claude · soma ponderada</span>
       <h2>AHP-Claude-<span>SAW</span></h2>
       <p class="desc">Pesos do AHP elaborado com o Claude, ranking por soma ponderada dos desempenhos.</p>
-      <ol class="top"><li><b>1º</b>São Caetano do Sul</li><li><b>2º</b>Diadema</li><li><b>3º</b>Pedreira</li></ol>
+      <ol class="top" data-mapa="mapa_ahp_claude_saw.html"><li class="carregando">Carregando ranking…</li></ol>
       <span class="abrir">Abrir mapa →</span>
     </a>
     <a class="cartao" href="mapa_ahp_claude_topsis.html">
       <span class="rot">Pesos Claude · proximidade da solução ideal</span>
       <h2>AHP-Claude-<span>TOPSIS</span></h2>
       <p class="desc">Pesos do AHP elaborado com o Claude, ranking pela proximidade à solução ideal.</p>
-      <ol class="top"><li><b>1º</b>Avaré</li><li><b>2º</b>Itaí</li><li><b>3º</b>Pedreira</li></ol>
+      <ol class="top" data-mapa="mapa_ahp_claude_topsis.html"><li class="carregando">Carregando ranking…</li></ol>
       <span class="abrir">Abrir mapa →</span>
     </a>
   </section>
 
   <section class="metodo">
     <h2>Como ler os mapas</h2>
-    <p>Municípios com conectividade insuficiente ou risco de tornado, rompimento de barragem ou inundação são vetados e aparecem em cinza. Os demais recebem um score: verde para os maiores e vermelho para os menores. Os desempenhos nos dez critérios são normalizados entre 0 e 1 (min-max); em disponibilidade de mão de obra aplica-se logaritmo antes da normalização. Os três primeiros colocados de cada cartão foram calculados com os pesos originais do respectivo AHP.</p>
+    <p>Municípios com conectividade insuficiente ou risco de tornado, rompimento de barragem ou inundação são vetados e aparecem em cinza. Os demais recebem um score: verde para os maiores e vermelho para os menores. Os desempenhos nos dez critérios são normalizados entre 0 e 1 (min-max); em disponibilidade de mão de obra aplica-se logaritmo antes da normalização. Os três primeiros de cada cartão são lidos direto do mapa, com os pesos originais do respectivo AHP.</p>
   </section>
 
   <footer>Malha municipal: IBGE, via geodata-br.</footer>
 </main>
+<script>
+(function () {
+  // Lê cada mapa, recalcula o ranking com os pesos originais e mostra os 3 primeiros.
+  function ranking(D) {
+    const K = D.criterios.length, w = D.criterios.map((c) => c.peso);
+    const el = D.municipios.filter((m) => !m.v && m.x);
+    const s = new Map();
+    if (String(D.metodo).toUpperCase() === "TOPSIS") {
+      const mx = Array(K).fill(-Infinity), mn = Array(K).fill(Infinity);
+      el.forEach((m) => m.x.forEach((v, j) => { const p = w[j] * v; if (p > mx[j]) mx[j] = p; if (p < mn[j]) mn[j] = p; }));
+      el.forEach((m) => {
+        let dp = 0, dn = 0;
+        m.x.forEach((v, j) => { const p = w[j] * v; dp += (p - mx[j]) ** 2; dn += (p - mn[j]) ** 2; });
+        dp = Math.sqrt(dp); dn = Math.sqrt(dn);
+        s.set(m, dp + dn === 0 ? 0 : dn / (dn + dp));
+      });
+    } else {
+      el.forEach((m) => s.set(m, m.x.reduce((t, v, j) => t + w[j] * v, 0)));
+    }
+    return el.sort((a, b) => (s.get(b) - s.get(a)) || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0));
+  }
+  document.querySelectorAll("ol.top[data-mapa]").forEach((ol) => {
+    fetch(ol.dataset.mapa)
+      .then((r) => { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then((txt) => {
+        const m = txt.match(/const DADOS = (\{[\s\S]*?\});\s*const GEO/);
+        if (!m) throw new Error("dados não encontrados");
+        const top = ranking(JSON.parse(m[1])).slice(0, 3);
+        ol.innerHTML = top.map((x, i) => "<li><b>" + (i + 1) + "º</b>" + x.n.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])) + "</li>").join("");
+      })
+      .catch(() => { ol.innerHTML = '<li class="indisp">Abra o mapa para ver o ranking.</li>'; });
+  });
+})();
+</script>
 </body>
 </html>
