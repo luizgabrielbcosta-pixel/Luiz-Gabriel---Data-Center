@@ -111,6 +111,7 @@ h2 { font: 600 15px/1.3 var(--f-display); margin: 0; letter-spacing: .01em; }
 /* Busca */
 .busca-linha { display: flex; gap: 8px; }
 .campo { font: 15px var(--f-body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; min-width: 0; width: 100%; }
+.rot-campo { font: 500 11px/1 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .resultado { display: grid; gap: 10px; }
 .res-nome { font: 600 18px/1.2 var(--f-display); }
 .res-pos { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
@@ -212,10 +213,16 @@ footer { color: var(--muted); font-size: 12px; max-width: 90ch; }
     <aside class="painel">
       <section class="card" aria-labelledby="h-busca">
         <h2 id="h-busca">Buscar município</h2>
+        <span class="rot-campo">Por nome</span>
         <form class="busca-linha" id="form-busca" autocomplete="off">
           <input class="campo" id="campo-busca" list="lista-mun" placeholder="Ex.: Campinas" aria-label="Nome do município">
           <datalist id="lista-mun"></datalist>
           <button class="btn btn-forte" type="submit">Buscar</button>
+        </form>
+        <span class="rot-campo">Por posição no ranking</span>
+        <form class="busca-linha" id="form-pos" autocomplete="off" novalidate>
+          <input class="campo" id="campo-pos" type="number" min="1" step="1" inputmode="numeric" aria-label="Posição no ranking">
+          <button class="btn btn-forte" type="submit">Ir</button>
         </form>
         <div class="resultado" id="resultado"><p class="msg">Digite o nome de uma cidade ou clique no mapa.</p></div>
       </section>
@@ -487,6 +494,19 @@ const GEO = {"w":2000,"h":1339,"f":[["3500105","M458 392l1 1 2 0 0 1 2 0 1 0 2 3
   }
   $("form-busca").addEventListener("submit", (e) => { e.preventDefault(); buscar($("campo-busca").value); });
   $("campo-busca").addEventListener("change", (e) => { buscar(e.target.value); });
+ 
+  // Busca por posição: usa o ranking atual (com os pesos que estiverem nos campos)
+  $("campo-pos").max = eleg.length;
+  $("campo-pos").placeholder = `1 a ${eleg.length}`;
+  $("form-pos").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const p = Number($("campo-pos").value);
+    if (!Number.isInteger(p) || p < 1 || p > eleg.length) {
+      $("resultado").innerHTML = `<p class="msg">Informe uma posição de 1 a ${eleg.length}.</p>`;
+      return;
+    }
+    selecionar(atual.ordem[p - 1], true);
+  });
  
   // ---------- Pesos ----------
   function arredondar2(w) {
